@@ -126,7 +126,7 @@ func (t *WebFetchTool) fetch(ctx context.Context, targetURL, format string, time
 		return "", "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Mini-Agent-Go/1.0)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; go-agent/1.0)")
 
 	// Execute request
 	resp, err := client.Do(req)

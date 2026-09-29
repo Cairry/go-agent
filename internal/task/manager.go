@@ -2,50 +2,54 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"sync"
+	"time"
 )
 
 // TaskRunner is a function that executes a task description and returns a result.
-// It is provided by the caller (e.g., cmd/main.go) to avoid circular imports.
+// It is provided by the caller to avoid circular imports.
 type TaskRunner func(ctx context.Context, description string) (result string, err error)
 
 // TaskManager manages task lifecycle: queuing, dispatching, and execution.
 type TaskManager struct {
-	store       *TaskStore
-	runner      TaskRunner
-	maxWorkers  int
-	sem         chan struct{}   // worker pool semaphore
-	wg          sync.WaitGroup // tracks running workers
-	ctx         context.Context
-	cancel      context.CancelFunc
-	notify      chan struct{} // signals new tasks to dispatcher
-	cancelsMu   sync.Mutex
-	cancels     map[string]context.CancelFunc // per-task cancel funcs
-	OnTaskComplete func(description, result string) // optional completion callback
+	store     *TaskStore
+	runner    TaskRunner
+	timeout   time.Duration
+	sem       chan struct{}  // worker pool semaphore
+	wg        sync.WaitGroup // tracks running workers
+	ctx       context.Context
+	cancel    context.CancelFunc
+	notify    chan struct{} // signals new tasks to dispatcher
+	cancelsMu sync.Mutex
+	cancels   map[string]context.CancelFunc // per-task cancel funcs
 }
 
 // NewTaskManager creates a new TaskManager.
 // parentCtx allows the manager to respond to application-level cancellation.
-func NewTaskManager(parentCtx context.Context, store *TaskStore, runner TaskRunner, maxWorkers int) *TaskManager {
+func NewTaskManager(parentCtx context.Context, store *TaskStore, runner TaskRunner, maxWorkers int, timeouts ...time.Duration) *TaskManager {
 	if maxWorkers <= 0 {
 		maxWorkers = 3
 	}
+	var timeout time.Duration
+	if len(timeouts) > 0 {
+		timeout = timeouts[0]
+	}
 	ctx, cancel := context.WithCancel(parentCtx)
 	return &TaskManager{
-		store:      store,
-		runner:     runner,
-		maxWorkers: maxWorkers,
-		sem:        make(chan struct{}, maxWorkers),
-		ctx:        ctx,
-		cancel:     cancel,
-		notify:     make(chan struct{}, 1),
-		cancels:    make(map[string]context.CancelFunc),
+		store:   store,
+		runner:  runner,
+		timeout: timeout,
+		sem:     make(chan struct{}, maxWorkers),
+		ctx:     ctx,
+		cancel:  cancel,
+		notify:  make(chan struct{}, 1),
+		cancels: make(map[string]context.CancelFunc),
 	}
 }
 
-// Start launches the dispatcher goroutine.
+// Start launches the dispatcher and resumes persisted pending tasks.
 func (m *TaskManager) Start() {
+	m.signal()
 	go m.dispatcher()
 }
 
@@ -61,32 +65,28 @@ func (m *TaskManager) AddTask(description, cronID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Non-blocking send to notify dispatcher
+	m.signal()
+	return t.ID, nil
+}
+
+func (m *TaskManager) signal() {
 	select {
 	case m.notify <- struct{}{}:
 	default:
 	}
-	return t.ID, nil
 }
 
 // CancelTask cancels a pending or running task.
 func (m *TaskManager) CancelTask(id string) error {
-	t, err := m.store.Get(id)
-	if err != nil {
+	m.cancelsMu.Lock()
+	defer m.cancelsMu.Unlock()
+	if err := m.store.Cancel(id); err != nil {
 		return err
 	}
-
-	if t.Status == StatusRunning {
-		// Cancel the running goroutine
-		m.cancelsMu.Lock()
-		cancelFn, ok := m.cancels[id]
-		m.cancelsMu.Unlock()
-		if ok {
-			cancelFn()
-		}
+	if cancelFn, ok := m.cancels[id]; ok {
+		cancelFn()
 	}
-
-	return m.store.Cancel(id)
+	return nil
 }
 
 // GetTask returns a task by ID.
@@ -146,34 +146,38 @@ func (m *TaskManager) runTask(id, description string) {
 		m.cancelsMu.Unlock()
 	}()
 
-	// Mark running
+	// Serialize the transition and cancellation registration with CancelTask.
+	m.cancelsMu.Lock()
 	if err := m.store.MarkRunning(id); err != nil {
+		m.cancelsMu.Unlock()
 		return // task may have been cancelled
 	}
 
-	// Create per-task context with cancel
-	taskCtx, taskCancel := context.WithCancel(m.ctx)
+	var taskCtx context.Context
+	var taskCancel context.CancelFunc
+	if m.timeout > 0 {
+		taskCtx, taskCancel = context.WithTimeout(m.ctx, m.timeout)
+	} else {
+		taskCtx, taskCancel = context.WithCancel(m.ctx)
+	}
 	defer taskCancel()
 
-	m.cancelsMu.Lock()
 	m.cancels[id] = taskCancel
 	m.cancelsMu.Unlock()
 
-	// Execute the runner
 	result, err := m.runner(taskCtx, description)
+	if taskCtx.Err() == context.DeadlineExceeded {
+		_ = m.store.MarkFailed(id, taskCtx.Err())
+		return
+	}
+	if taskCtx.Err() == context.Canceled {
+		// Explicit cancellation is already persisted; shutdown is recovered on restart.
+		return
+	}
 	if err != nil {
-		// Check if it was a cancellation
-		if taskCtx.Err() != nil {
-			// Already cancelled via CancelTask — store.Cancel was called
-			return
-		}
-		m.store.MarkFailed(id, fmt.Errorf("%v", err))
+		_ = m.store.MarkFailed(id, err)
 		return
 	}
 
-	m.store.MarkCompleted(id, result)
-
-	if m.OnTaskComplete != nil {
-		go m.OnTaskComplete(description, result)
-	}
+	_ = m.store.MarkCompleted(id, result)
 }

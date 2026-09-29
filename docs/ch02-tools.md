@@ -369,7 +369,7 @@ AI: 好的，让我先读取 go.mod 文件。
     [调用 read 工具，参数：{"file_path": "go.mod"}]
 
 [工具执行结果]
-    module mini-agent-go
+    module go-agent
     go 1.21
     require (
         github.com/anthropics/anthropic-sdk-go v0.2.0

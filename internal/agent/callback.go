@@ -3,7 +3,7 @@ package agent
 import (
 	"strings"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // AgentCallback defines callback functions for Agent execution events.
@@ -11,9 +11,9 @@ type AgentCallback struct {
 	OnStep func(step, maxSteps int)
 
 	// Streaming callbacks
-	OnContentDelta        func(delta string, isFirst bool)
-	OnThinkingDelta       func(delta string, isFirst bool)
-	OnStreamComplete      func(finalContent string)
+	OnContentDelta   func(delta string, isFirst bool)
+	OnThinkingDelta  func(delta string, isFirst bool)
+	OnStreamComplete func(finalContent string)
 
 	// Tool callbacks
 	OnToolCall            func(name string, args map[string]interface{})
@@ -40,11 +40,11 @@ func (a *Agent) injectPendingMessages(callback AgentCallback) {
 
 // agentStreamAdapter adapts LLM StreamCallback to AgentCallback
 type agentStreamAdapter struct {
-	agentCallback    AgentCallback
-	isFirstContent   bool
-	isFirstThinking  bool
-	contentBuf       *strings.Builder
-	thinkingBuf      *strings.Builder
+	agentCallback   AgentCallback
+	isFirstContent  bool
+	isFirstThinking bool
+	contentBuf      *strings.Builder
+	thinkingBuf     *strings.Builder
 }
 
 func newAgentStreamAdapter(callback AgentCallback) *agentStreamAdapter {

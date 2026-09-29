@@ -1,7 +1,7 @@
-# 第四章：全渠道驾驶舱——TUI/Web/通知/IM
+# 第四章：TUI 界面与任务通知
 
 > Agent 跑起来了，但你不可能一直盯着终端。
-> 这章我们给它装上"驾驶舱"——从终端 UI 到手机 IM，随时随地掌控你的数字员工。
+> 这章介绍终端 TUI、流式输出和任务完成通知。
 
 ---
 
@@ -131,60 +131,6 @@ TUI 实现这些回调，将 Agent 的执行状态实时映射到界面更新。
 
 ---
 
-## 远程 Web 控制
-
-### 为什么需要远程控制？
-
-最常见的使用场景：
-- Agent 在家里的服务器上跑长时间任务
-- 你在外面，想查看进度或追加指令
-- 不想在手机上装 SSH 客户端
-
-### WebSocket 实时推送
-
-```
-浏览器（手机/电脑）          Agent 服务器
-      │                           │
-      │ GET /qr                   │
-      │ ─────────────────────────►│
-      │ 返回二维码                │
-      │ ◄─────────────────────────│
-      │                           │
-      │ [扫码] WS /chat           │
-      │ ─────────────────────────►│  建立 WebSocket 连接
-      │                           │
-      │                           │  Agent 执行中...
-      │ ◄── stream delta ─────────│  实时推送每个文字 token
-      │ ◄── tool_call ────────────│  推送工具调用事件
-      │ ◄── tool_result ──────────│  推送工具结果
-      │ ◄── complete ─────────────│  任务完成
-```
-
-```go
-// 伪码：WebSocket 消息协议
-type WSMessage struct {
-    Type    string      `json:"type"`    // "delta" | "tool_call" | "complete"
-    Content string      `json:"content"` // 文字内容
-    Tool    string      `json:"tool"`    // 工具名
-    Success bool        `json:"success"` // 工具是否成功
-}
-```
-
-### QR 码快速连接
-
-```go
-// 伪码：启动时生成 QR 码
-// 对应真实代码：cmd/main.go 启动逻辑
-
-localIP := getLocalIP()       // 获取本机局域网 IP
-url := fmt.Sprintf("http://%s:%d", localIP, port)
-qrCode := generateQR(url)    // 生成终端可显示的 QR 码
-fmt.Println(qrCode)          // 打印到终端
-fmt.Printf("扫码访问: %s\n", url)
-```
-
-启动后终端会显示一个 ASCII 二维码，手机扫描即可打开 Web 界面。
-
 ---
 
 ## 通知系统（Server 酱）
@@ -226,9 +172,9 @@ notify:
 
 ---
 
-## IM Gateway：让 Agent 成为 IM 机器人
+## IM Gateway（已移除）
 
-这是最有趣的功能——让你的数字员工通过微信、企业微信等 IM 工具与你对话。
+本项目已移除 IM Gateway 和 ServerIM 渠道。本章以下 IM Gateway 示例仅保留为历史设计记录，不再对应当前代码。
 
 ### 架构设计
 
@@ -281,9 +227,9 @@ type IMChannel interface {
 }
 ```
 
-### Server 酱 IM 渠道实现
+### Server 酱 IM 渠道实现（已移除）
 
-项目内置了 Server 酱 IM 渠道（支持微信接收消息）：
+项目已不再内置 Server 酱 IM 渠道；Server 酱仅用于异步任务完成通知。
 
 ```go
 // 伪码：Server 酱 IM 渠道
@@ -381,7 +327,7 @@ func (c *WebhookChannel) Start(ctx context.Context, inbound chan<- *GatewayMessa
 
 ---
 
-## 模拟对话：手机 IM 控制 Agent
+## 模拟对话：手机 IM 控制 Agent（已移除）
 
 ```
 [手机微信 - 数字员工 Bot]
@@ -418,16 +364,11 @@ func (c *WebhookChannel) Start(ctx context.Context, inbound chan<- *GatewayMessa
 
 - **TUI**：Bubbletea Elm 架构，工具调用折叠展示，流式输出
 - **AgentCallback**：连接 Agent 和 UI 的回调接口
-- **远程 Web 控制**：WebSocket 实时推送 + QR 码扫码连接
 - **通知系统**：Server 酱 Webhook，任务完成主动推送
-- **IM Gateway**：每渠道独立 Agent、消息路由、Server 酱 IM 渠道实现
-- **IMChannel 接口**：可扩展，添加任意 IM 渠道
+- IM Gateway 和 ServerIM 渠道已移除
 
 对应代码：
 - `internal/tui/` — TUI 实现
-- `internal/gateway/gateway.go` — 消息路由核心
-- `internal/gateway/channel.go` — IMChannel 接口
-- `internal/gateway/channels/` — 具体渠道实现
 
 ---
 

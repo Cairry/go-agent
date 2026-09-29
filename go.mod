@@ -1,4 +1,4 @@
-module mini-agent-go
+module go-agent
 
 go 1.24.0
 
@@ -16,11 +16,9 @@ require (
 	github.com/muesli/reflow v0.3.0
 	github.com/openai/openai-go v1.12.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/u-root/u-root v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 	mvdan.cc/sh/v3 v3.12.0
-	nhooyr.io/websocket v1.8.17
 )
 
 require (

@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	qrcode "github.com/skip2/go-qrcode"
 )
 
 // handleCommand 处理用户输入的命令
-func (m Model) handleCommand(input string) (tea.Model, tea.Cmd) {
+func (m *Model) handleCommand(input string) (tea.Model, tea.Cmd) {
 	switch input {
 	case "/help", "help":
 		m.showHelp()
@@ -30,10 +29,6 @@ func (m Model) handleCommand(input string) (tea.Model, tea.Cmd) {
 		m.showPrompt()
 		return m, nil
 
-	case "/qrcode", "qrcode":
-		m.showQRCode()
-		return m, nil
-
 	case "/quit", "/exit", "quit", "exit":
 		return m, tea.Quit
 
@@ -51,7 +46,6 @@ func (m *Model) showHelp() {
   /history   - Show current session message count
   /stats     - Show session statistics
   /prompt    - Show current system prompt
-  /qrcode    - Show QR code for project URL
   /quit      - Exit program (also: /exit)
 
 Usage:
@@ -78,9 +72,6 @@ func (m *Model) clearHistory() {
 	// Clear UI messages
 	m.messages = []Message{}
 	m.viewport.SetContent("")
-
-	// Push clear event to Web
-	m.pushClearToWeb()
 
 	m.addSystemMessage(fmt.Sprintf("Cleared %d messages from history", oldCount-1))
 }
@@ -135,28 +126,4 @@ func (m *Model) showPrompt() {
 	}
 
 	m.addSystemMessage(fmt.Sprintf("=== System Prompt ===\n%s\n===================", prompt))
-}
-
-// showQRCode 显示 Web 控制 URL 的 QR code（如果启用），否则显示项目 URL
-func (m *Model) showQRCode() {
-	var url string
-	var description string
-
-	// 如果 Web 控制启用，显示 Web 控制 URL
-	if m.web != nil && m.web.enabled {
-		url = m.GetWebURL()
-		description = "Scan to open Web remote control"
-	} else {
-		url = "https://github.com/anthropics/claude-code"
-		description = "Scan to visit project page"
-	}
-
-	qr, err := qrcode.New(url, qrcode.Medium)
-	if err != nil {
-		m.addSystemMessage(fmt.Sprintf("Failed to generate QR code: %v", err))
-		return
-	}
-
-	text := qr.ToSmallString(false)
-	m.addSystemMessage(fmt.Sprintf("=== QR Code ===\n%s\n%s: %s", text, description, url))
 }

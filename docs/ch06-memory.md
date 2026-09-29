@@ -159,7 +159,7 @@ AI: 好的，我按照你的代码风格偏好来优化，
 ```
 [多次会话后，memory.json 中积累了：]
 
-- "项目编译命令：go build -o mini-agent-go ./cmd"
+- "项目编译命令：go build -o go-agent ./cmd"
 - "测试命令：go test ./... -v"
 - "部署服务器：192.168.1.100，SSH 端口 2222"
 - "代码审查标准：文件 docs/review-checklist.md"
@@ -271,7 +271,6 @@ cronManager.AddJob("0 * * * *", healthCheckPrompt)
 ├── mini-agent-20260222-143022.jsonl  # 今天的会话日志
 ├── mini-agent-20260221-091533.jsonl  # 昨天的
 ├── mini-agent-20260220-163041.jsonl  # 前天的
-└── gateway_20260222_140015.log       # Gateway 日志
 ```
 
 日志不会自动清理，可以通过 Cron 任务定期归档：

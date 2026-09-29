@@ -4,8 +4,8 @@ refer/
 workspace/
 
 # Build artifacts
-mini-agent-go
-mini-agent-go.exe
+go-agent
+go-agent.exe
 
 # .agent/ - keep structure but ignore sensitive config and runtime data
 .agent/config.yaml

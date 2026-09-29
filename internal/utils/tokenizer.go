@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // EstimateTokens estimates the number of tokens in a list of messages

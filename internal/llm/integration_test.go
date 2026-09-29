@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // TestAnthropicIntegration tests actual Anthropic API calls

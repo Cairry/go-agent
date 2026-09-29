@@ -14,7 +14,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	"github.com/anthropics/anthropic-sdk-go/packages/ssestream"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // AnthropicSDKClient wraps the official Anthropic SDK
@@ -206,8 +206,8 @@ func (c *AnthropicSDKClient) convertTools(tools []map[string]interface{}) []anth
 
 		// Convert input_schema to SDK format
 		inputSchema := anthropic.ToolInputSchemaParam{
-			Type:        "object",
-			Properties:  properties,
+			Type:       "object",
+			Properties: properties,
 		}
 
 		toolParam := anthropic.ToolParam{

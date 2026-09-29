@@ -24,10 +24,10 @@ type ToolLite struct {
 
 // UsageLite is a lightweight representation of usage for logging
 type UsageLite struct {
-	InputTokens     int `json:"input_tokens,omitempty"`
-	OutputTokens    int `json:"output_tokens,omitempty"`
-	TotalTokens     int `json:"total_tokens,omitempty"`
-	PromptTokens    int `json:"prompt_tokens,omitempty"`
+	InputTokens      int `json:"input_tokens,omitempty"`
+	OutputTokens     int `json:"output_tokens,omitempty"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
 	CompletionTokens int `json:"completion_tokens,omitempty"`
 }
 
@@ -153,11 +153,6 @@ func (l *Logger) writeLog(entry map[string]interface{}) {
 
 	fmt.Fprintf(l.logFile, "%s\n", string(data))
 	l.logFile.Sync()
-}
-
-// GetLogFilePath returns the path of the log file
-func (l *Logger) GetLogFilePath() string {
-	return l.logFilePath
 }
 
 // Close closes the log file

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mini-agent-go/internal/task"
+	"go-agent/internal/task"
 )
 
 // CronTool is a unified tool for managing cron schedules.

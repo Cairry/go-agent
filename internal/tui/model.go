@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"mini-agent-go/internal/agent"
-	"mini-agent-go/internal/config"
-	"mini-agent-go/internal/llm"
-	"mini-agent-go/internal/storage"
-	"mini-agent-go/internal/tools"
+	"go-agent/internal/agent"
+	"go-agent/internal/config"
+	"go-agent/internal/llm"
+	"go-agent/internal/storage"
+	"go-agent/internal/tools"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -31,7 +31,6 @@ const (
 	inputBorderHeight  = 2 // RoundedBorder上下边框各1行
 	inputPaddingHeight = 0 // 上下padding都是0
 	inputHeightBuffer  = 1 // 为textarea内部渲染逻辑预留buffer
-	maxInputHeight     = 10
 	footerHeight       = 1
 )
 
@@ -41,7 +40,7 @@ func getInputHeight() int {
 }
 
 // getPendingHeight 计算 pending 消息区域高度
-func (m Model) getPendingHeight() int {
+func (m *Model) getPendingHeight() int {
 	m.pendingMutex.Lock()
 	defer m.pendingMutex.Unlock()
 
@@ -52,7 +51,7 @@ func (m Model) getPendingHeight() int {
 }
 
 // getTodoHeight 计算 todo 列表区域高度
-func (m Model) getTodoHeight() int {
+func (m *Model) getTodoHeight() int {
 	m.todosMutex.RLock()
 	defer m.todosMutex.RUnlock()
 
@@ -80,7 +79,6 @@ type Model struct {
 	// 运行状态
 	isRunning   bool
 	currentStep int
-	maxSteps    int
 	statusText  string
 
 	// UI 尺寸
@@ -128,58 +126,21 @@ type Model struct {
 	// Startup messages to display when TUI becomes ready (errors, diagnostics)
 	startupMessages []string
 
-	// Web 远程控制（使用指针，所有 Model 副本共享同一个 WebState）
-	web *WebState
-}
-
-// NewModel 创建一个新的 TUI Model
-func NewModel(a *agent.Agent, cfg *config.Config) Model {
-	// 创建输入区域
-	ta := textarea.New()
-	ta.Placeholder = "Write your message here... (Press Enter to submit)"
-	ta.Prompt = ""              // 清空默认的行前缀 '┃ '
-	//ta.EndOfBufferCharacter = 0 // 不显示缓冲区末尾字符
-	ta.CharLimit = 0
-	ta.SetHeight(textareaHeight)
-	ta.ShowLineNumbers = false
-	ta.Focus()
-
-	// 禁用多行输入：Enter 键用于提交，不插入换行
-	ta.KeyMap.InsertNewline.SetEnabled(false)
-
-	// 创建会话区域（滚动视口）
-	vp := viewport.New(0, 0)
-
-	// 创建 Markdown 渲染器（使用暗色主题，初始宽度80）
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(80),
-	)
-
-	return Model{
-		agent:                 a,
-		config:                cfg,
-		ctx:                   context.Background(),
-		textarea:              ta,
-		viewport:              vp,
-		messages:              []Message{},
-		maxSteps:              cfg.Agent.MaxSteps,
-		ready:                 false,
-		mdRenderer:            renderer,
-		currentStreamingIndex: -1,
-		streamingContentBuf:   &strings.Builder{},
-		streamingThinkingBuf:  &strings.Builder{},
-		renderDebounce:        75 * time.Millisecond, // 75ms防抖间隔
-	}
+	// Terminal OSC 11 responses can arrive as ordinary key runes in chunks.
+	terminalReportProbe    string
+	droppingTerminalReport bool
+	terminalReportMode     string
 }
 
 // NewModelWithComponents 创建一个新的 TUI Model（带所有组件用于初始化）
 func NewModelWithComponents(cfg *config.Config, model interface{}, systemPrompt string, skillLoader, skillTool interface{}) Model {
+	// Avoid OSC 11 background-color probes leaking into the textarea on some terminals.
+	lipgloss.SetHasDarkBackground(true)
+
 	// 创建输入区域
 	ta := textarea.New()
-	ta.Placeholder = "Write your message here... (Press Enter to submit)"
-	ta.Prompt = ""              // 清空默认的行前缀 '┃ '
-	//ta.EndOfBufferCharacter = 0 // 不显示缓冲区末尾字符
+	ta.Placeholder = "Ask MiniAgent to do anything"
+	ta.Prompt = ""
 	ta.CharLimit = 0
 	ta.SetHeight(textareaHeight)
 	ta.ShowLineNumbers = false
@@ -220,7 +181,7 @@ func NewModelWithComponents(cfg *config.Config, model interface{}, systemPrompt 
 
 	// 创建 Markdown 渲染器（使用暗色主题，初始宽度80）
 	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStandardStyle("dark"),
 		glamour.WithWordWrap(80),
 	)
 
@@ -231,7 +192,6 @@ func NewModelWithComponents(cfg *config.Config, model interface{}, systemPrompt 
 		textarea:              ta,
 		viewport:              vp,
 		messages:              []Message{},
-		maxSteps:              cfg.Agent.MaxSteps,
 		ready:                 false,
 		model:                 model,
 		systemPrompt:          systemPrompt,
@@ -244,7 +204,10 @@ func NewModelWithComponents(cfg *config.Config, model interface{}, systemPrompt 
 		streamingThinkingBuf:  &strings.Builder{},
 		renderDebounce:        75 * time.Millisecond, // 75ms防抖间隔
 		agentInternalEventCh:  eventCh,               // Receive-only channel for TUI
-		web:                   &WebState{},           // 共享的 Web 状态
+		startupMessages: []string{
+			"👋 Welcome to MiniK!",
+			"Tell me what you want to do, then press Enter to start.",
+		},
 	}
 }
 
@@ -277,7 +240,7 @@ func (m *Model) GetToolCount() int {
 }
 
 // Init 初始化 Model（Bubbletea 必需方法）
-func (m Model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
 	return textarea.Blink
 }
 
@@ -293,8 +256,6 @@ func (m *Model) addMessage(msg Message) {
 	// 滚动到底部
 	m.viewport.GotoBottom()
 
-	// 推送到 Web 客户端
-	m.pushMessageToWeb(msg)
 }
 
 // addSystemMessage 添加系统消息
@@ -306,7 +267,7 @@ func (m *Model) addSystemMessage(content string) {
 }
 
 // renderMessages 渲染所有消息
-func (m Model) renderMessages() string {
+func (m *Model) renderMessages() string {
 	var lines []string
 
 	for _, msg := range m.messages {
@@ -318,7 +279,7 @@ func (m Model) renderMessages() string {
 }
 
 // renderMessage 渲染单条消息
-func (m Model) renderMessage(msg Message) string {
+func (m *Model) renderMessage(msg Message) string {
 	// 计算可用宽度，预留边距
 	availableWidth := m.width
 	if availableWidth < 40 {
@@ -356,7 +317,7 @@ func (m Model) renderMessage(msg Message) string {
 
 			// 重新创建渲染器以更新宽度设置
 			renderer, err := glamour.NewTermRenderer(
-				glamour.WithAutoStyle(),
+				glamour.WithStandardStyle("dark"),
 				glamour.WithWordWrap(renderWidth),
 			)
 			if err == nil {
@@ -468,7 +429,7 @@ func (m Model) renderMessage(msg Message) string {
 
 	case MessageTypeSystem:
 		prefix := "[System] "
-		wrappedText := wordwrap.String(prefix + msg.Content, availableWidth)
+		wrappedText := wordwrap.String(prefix+msg.Content, availableWidth)
 		lines := strings.Split(wrappedText, "\n")
 		for i := 0; i < len(lines); i++ {
 			lines[i] = systemStyle.Render(lines[i])
@@ -480,54 +441,25 @@ func (m Model) renderMessage(msg Message) string {
 	}
 }
 
-// renderHeader 渲染标题栏
-func (m Model) renderHeader() string {
-	logo := "🤖 MiniK"
-	workspace := fmt.Sprintf("Workspace: %s", m.config.Agent.WorkspaceDir)
-	model := fmt.Sprintf("Model: %s", m.config.LLM.Model)
-
-	// 计算可用宽度
-	leftPart := logo
-	rightPart := model
-	centerPart := workspace
-
-	// 计算填充
-	usedWidth := lipgloss.Width(leftPart) + lipgloss.Width(centerPart) + lipgloss.Width(rightPart) + 4
-	spacerWidth := m.width - usedWidth
-	if spacerWidth < 0 {
-		spacerWidth = 0
-	}
-	spacer := strings.Repeat(" ", spacerWidth)
-
-	content := fmt.Sprintf("%s  %s%s%s", leftPart, centerPart, spacer, rightPart)
-
-	return headerStyle.Width(m.width).Render(content)
-}
-
 // renderStatusBar 渲染状态栏
-func (m Model) renderStatusBar() string {
+func (m *Model) renderStatusBar() string {
 	text := fmt.Sprintf("⚡ %s", m.statusText)
 	return statusBarStyle.Width(m.width).Render(text)
 }
 
 // renderInput 渲染输入区域
-func (m Model) renderInput() string {
+func (m *Model) renderInput() string {
 	return inputStyle.Width(m.width - 2).Render(m.textarea.View())
 }
 
 // renderFooter 渲染底部帮助文本
-func (m Model) renderFooter() string {
-	var helpText string
-	if m.isRunning {
-		helpText = "Enter: submit | ESC: cancel execution | Ctrl+C: quit"
-	} else {
-		helpText = "Enter: submit | ESC: quit | /help: commands | Ctrl+C: quit"
-	}
-	return helpStyle.Width(m.width).Render(helpText)
+func (m *Model) renderFooter() string {
+	content := fmt.Sprintf("%s · %s", m.config.LLM.Model, m.config.Agent.WorkspaceDir)
+	return footerStyle.Width(m.width).Render(content)
 }
 
 // renderPendingMessages 渲染待处理的消息提示
-func (m Model) renderPendingMessages() string {
+func (m *Model) renderPendingMessages() string {
 	m.pendingMutex.Lock()
 	defer m.pendingMutex.Unlock()
 
@@ -548,15 +480,15 @@ func (m Model) renderPendingMessages() string {
 }
 
 // View 渲染整个界面（Bubbletea 必需方法）
-func (m Model) View() string {
+func (m *Model) View() string {
 	if !m.ready {
 		return "Initializing..."
 	}
 
 	var sections []string
 
-	// 1. 标题栏
-	sections = append(sections, m.renderHeader())
+	// 1. 标题
+	// sections = append(sections, m.renderHeader())
 
 	// 2. 会话区域
 	sections = append(sections, m.viewport.View())
@@ -581,7 +513,7 @@ func (m Model) View() string {
 	// 6. 输入区域
 	sections = append(sections, m.renderInput())
 
-	// 7. 底部帮助
+	// 7. 底部
 	sections = append(sections, m.renderFooter())
 
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
@@ -601,8 +533,6 @@ func (m *Model) updateLastMessage(newContent string) {
 	m.viewport.SetContent(content)
 	m.viewport.GotoBottom()
 
-	// 推送更新到 Web 客户端
-	m.pushMessageUpdateToWeb(newContent)
 }
 
 // updateLastMessageWithDebounce 更新最后一条消息的内容（带防抖优化）
@@ -627,33 +557,10 @@ func (m *Model) updateLastMessageWithDebounce(newContent string) {
 	m.viewport.SetContent(content)
 	m.viewport.GotoBottom()
 
-	// 推送更新到 Web 客户端（同样使用防抖）
-	m.pushMessageUpdateToWeb(newContent)
-}
-
-// updateLastMessageWithSmartScroll 更新最后一条消息（智能滚动）
-func (m *Model) updateLastMessageWithSmartScroll(newContent string) {
-	if len(m.messages) == 0 {
-		return
-	}
-
-	atBottom := m.viewport.AtBottom()
-
-	lastIdx := len(m.messages) - 1
-	m.messages[lastIdx].Content = newContent
-
-	// 重新渲染
-	content := m.renderMessages()
-	m.viewport.SetContent(content)
-
-	// 仅当用户在底部时才自动滚动
-	if atBottom {
-		m.viewport.GotoBottom()
-	}
 }
 
 // renderTodoList 渲染 todo 列表
-func (m Model) renderTodoList() string {
+func (m *Model) renderTodoList() string {
 	m.todosMutex.RLock()
 	defer m.todosMutex.RUnlock()
 

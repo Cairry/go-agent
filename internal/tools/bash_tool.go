@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"mini-agent-go/internal/shell"
+	"go-agent/internal/shell"
 )
 
 const (
-	DefaultBashTimeout = 60      // seconds
-	MaxBashTimeout     = 600     // seconds
-	MaxOutputLines     = 500     // tail truncation: max lines
+	DefaultBashTimeout = 60        // seconds
+	MaxBashTimeout     = 600       // seconds
+	MaxOutputLines     = 500       // tail truncation: max lines
 	MaxOutputBytes     = 30 * 1024 // tail truncation: 30KB
 	BashNoOutput       = "(no output)"
 )

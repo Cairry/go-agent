@@ -26,10 +26,9 @@ var (
 // 样式定义
 var (
 	// 标题栏样式
-	headerStyle = lipgloss.NewStyle().
+	footerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorPrimary).
-			Background(colorBgDark).
+			Foreground(colorPurple).
 			Padding(0, 1)
 
 	// 状态栏样式
@@ -69,10 +68,6 @@ var (
 
 	systemStyle = lipgloss.NewStyle().
 			Italic(true).
-			Foreground(colorSecondary)
-
-	// 帮助文本样式
-	helpStyle = lipgloss.NewStyle().
 			Foreground(colorSecondary)
 
 	// Todo 样式

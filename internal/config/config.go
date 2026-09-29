@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"go-agent/internal/schema"
+
 	"gopkg.in/yaml.v3"
-	"mini-agent-go/internal/schema"
 )
 
 // RetryConfig represents retry configuration
@@ -24,8 +25,8 @@ type LLMConfig struct {
 	APIBase     string             `yaml:"api_base"`
 	Model       string             `yaml:"model"`
 	Provider    schema.LLMProvider `yaml:"provider"`
-	MaxTokens   int                `yaml:"max_tokens"`   // Max output tokens per request (default: provider-specific)
-	Temperature float64            `yaml:"temperature"`  // Sampling temperature (default: -1 = provider default)
+	MaxTokens   int                `yaml:"max_tokens"`  // Max output tokens per request (default: provider-specific)
+	Temperature float64            `yaml:"temperature"` // Sampling temperature (default: -1 = provider default)
 	Retry       RetryConfig        `yaml:"retry"`
 }
 
@@ -39,59 +40,27 @@ type AgentConfig struct {
 
 // ToolsConfig represents tools configuration
 type ToolsConfig struct {
-	EnableFileTools bool   `yaml:"enable_file_tools"`
-	EnableBash      bool   `yaml:"enable_bash"`
-	EnableNote      bool   `yaml:"enable_note"`
-	EnableSkills    bool   `yaml:"enable_skills"`
-	SkillsDir       string `yaml:"skills_dir"`
-	EnableMCP       bool   `yaml:"enable_mcp"`
-	MCPConfigPath   string `yaml:"mcp_config_path"`
+	SkillsDir     string `yaml:"skills_dir"`
+	MCPConfigPath string `yaml:"mcp_config_path"`
 }
 
 // TaskConfig represents async task/subagent configuration
 type TaskConfig struct {
-	MaxWorkers  int `yaml:"max_workers"`   // max concurrent subagent tasks (default: 3)
-	TaskTimeout int `yaml:"task_timeout"`  // per-task timeout in seconds (default: 600)
-}
-
-// NotifyConfig represents notification configuration
-type NotifyConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	SendKey string `yaml:"sendkey"`
-}
-
-// WebControlConfig represents web remote control configuration
-type WebControlConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	Host       string `yaml:"host"`
-	Port       int    `yaml:"port"`
-	ShowQRCode bool   `yaml:"show_qrcode"`
-}
-
-// ChannelConfig holds configuration for a single IM channel instance.
-type ChannelConfig struct {
-	Type          string `yaml:"type"`           // "serverim"
-	AccountID     string `yaml:"account_id"`     // optional; derived from token prefix if omitted
-	Token         string `yaml:"token"`          // required
-	Mode          string `yaml:"mode"`           // "webhook" (default) or "polling"
-	WebhookAddr   string `yaml:"webhook_addr"`   // listen address for webhook mode, e.g. ":8088"
-	WebhookSecret string `yaml:"webhook_secret"` // optional header secret for webhook validation
+	MaxWorkers  int `yaml:"max_workers"`  // max concurrent subagent tasks (default: 3)
+	TaskTimeout int `yaml:"task_timeout"` // per-task timeout in seconds (default: 600)
 }
 
 // Config represents the main configuration
 type Config struct {
-	LLM        LLMConfig        `yaml:"llm"`
-	Agent      AgentConfig      `yaml:"agent"`
-	Tools      ToolsConfig      `yaml:"tools"`
-	Task       TaskConfig       `yaml:"task"`
-	Notify     NotifyConfig     `yaml:"notify"`
-	WebControl WebControlConfig `yaml:"web_control"`
-	Channels   []ChannelConfig  `yaml:"channels"`
+	LLM   LLMConfig   `yaml:"llm"`
+	Agent AgentConfig `yaml:"agent"`
+	Tools ToolsConfig `yaml:"tools"`
+	Task  TaskConfig  `yaml:"task"`
 }
 
 // Load loads configuration from file
 func Load() (*Config, error) {
-	configPath := filepath.Join(".agent", "config.yaml")
+	configPath := GetDefaultConfigPath()
 	if _, err := os.Stat(configPath); err != nil {
 		return nil, fmt.Errorf("configuration file not found: %s", configPath)
 	}
@@ -119,12 +88,8 @@ func Load() (*Config, error) {
 // validateAndSetDefaults validates the configuration and sets default values
 func validateAndSetDefaults(config *Config) error {
 	// Validate API key
-	if config.LLM.APIKey == "" {
+	if config.LLM.APIKey == "" || config.LLM.APIKey == "YOUR_API_KEY_HERE" {
 		return fmt.Errorf("API key is required")
-	}
-
-	if config.LLM.APIKey == "YOUR_API_KEY_HERE" {
-		return fmt.Errorf("please configure a valid API key")
 	}
 
 	// Set LLM defaults
@@ -198,14 +163,6 @@ func validateAndSetDefaults(config *Config) error {
 		config.Task.TaskTimeout = 600
 	}
 
-	// Set web control defaults
-	if config.WebControl.Host == "" {
-		config.WebControl.Host = "0.0.0.0"
-	}
-	if config.WebControl.Port == 0 {
-		config.WebControl.Port = 8765
-	}
-
 	return nil
 }
 
@@ -214,31 +171,22 @@ func GetDefaultConfigPath() string {
 	return filepath.Join(".agent", "config.yaml")
 }
 
+func GetSystemPromptContent(path string) string {
+	systemPromptPath, err := findConfigFile(path)
+	if err == nil {
+		data, err := os.ReadFile(systemPromptPath)
+		if err == nil {
+			return string(data)
+		}
+	}
+	return "You are 小K (MiniK), a versatile AI assistant capable of executing complex tasks through a rich toolset. Your name comes from the fact that you always like to say \"OK\"."
+}
+
 // FindConfigFile searches for a configuration file in .agent/ directory
-func FindConfigFile(filename string) (string, error) {
+func findConfigFile(filename string) (string, error) {
 	configPath := filepath.Join(".agent", filename)
 	if _, err := os.Stat(configPath); err == nil {
 		return configPath, nil
 	}
 	return "", fmt.Errorf("config file not found: %s", configPath)
-}
-
-// Save saves configuration to file
-func (c *Config) Save(path string) error {
-	data, err := yaml.Marshal(c)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	// Create directory if it doesn't exist
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	return nil
 }

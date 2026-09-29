@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mini-agent-go/internal/storage"
+	"go-agent/internal/storage"
 )
 
 func TestTodoTool_Execute(t *testing.T) {

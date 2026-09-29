@@ -29,11 +29,6 @@ type Message struct {
 
 // Bubbletea 消息类型（事件）
 
-// windowSizeMsg 窗口大小变化事件
-type windowSizeMsg struct {
-	width, height int
-}
-
 // agentStartMsg Agent 开始执行事件
 type agentStartMsg struct{}
 
@@ -41,16 +36,6 @@ type agentStartMsg struct{}
 type agentStepMsg struct {
 	step     int
 	maxSteps int
-}
-
-// agentThinkingMsg Agent 思考内容事件
-type agentThinkingMsg struct {
-	content string
-}
-
-// agentResponseMsg Agent 响应内容事件
-type agentResponseMsg struct {
-	content string
 }
 
 // agentToolCallMsg Agent 工具调用事件
@@ -67,9 +52,7 @@ type agentToolResultMsg struct {
 }
 
 // agentCompleteMsg Agent 完成执行事件
-type agentCompleteMsg struct {
-	result string
-}
+type agentCompleteMsg struct{}
 
 // agentErrorMsg Agent 执行错误事件
 type agentErrorMsg struct {
@@ -104,21 +87,3 @@ type agentStreamCompleteMsg struct {
 type todoUpdateMsg struct {
 	todos []interface{} // TodoItem from tools package
 }
-
-// Web 远程控制消息类型
-
-// webInputMsg Web 用户输入事件
-type webInputMsg struct {
-	content string
-}
-
-// webCommandMsg Web 命令事件
-type webCommandMsg struct {
-	name string
-}
-
-// webConnectedMsg Web 连接建立事件
-type webConnectedMsg struct{}
-
-// webDisconnectedMsg Web 连接断开事件
-type webDisconnectedMsg struct{}

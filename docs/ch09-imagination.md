@@ -14,7 +14,7 @@
 | 第1章 | LLM API 抽象 | AI 的嘴巴——能说话 |
 | 第2章 | 工具系统 | AI 的手脚——能干活 |
 | 第3章 | Agent 循环 + Token 摘要 | AI 的大脑——能自主思考 |
-| 第4章 | TUI/Web/IM 界面 | AI 的接口——随时可用 |
+| 第4章 | TUI 界面 | AI 的接口——随时可用 |
 | 第5章 | 异步任务 + 定时任务 | AI 的分身——并发处理 |
 | 第6章 | 持久记忆 | AI 的记忆——越用越懂你 |
 | 第7章 | 技能系统 | AI 的专业知识库 |
@@ -199,15 +199,15 @@
 ### 最小可行配置（5 分钟上手）
 
 ```bash
-git clone https://github.com/your-repo/mini-agent-go
-cd mini-agent-go
-go build -o mini-agent-go ./cmd
+git clone https://github.com/your-repo/go-agent
+cd go-agent
+go build -o go-agent ./cmd
 
 # 编辑配置
 cp .agent/config/config.example.yaml .agent/config/config.yaml
 # 填入 API Key
 
-./mini-agent-go
+./go-agent
 ```
 
 ### 个性化第一步
@@ -261,6 +261,6 @@ cp .agent/config/config.example.yaml .agent/config/config.yaml
 ---
 
 *本教程系列由 Claude Code 编写。*
-*mini-agent-go 项目由 Claude Code 实现。*
+*go-agent 项目由 Claude Code 实现。*
 
 **如果这个项目对你有帮助，请给个 Star ⭐**

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"mini-agent-go/internal/storage"
+	"go-agent/internal/storage"
 )
 
 // TodoTool implements the todo tool for tracking multi-step progress

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mini-agent-go/internal/task"
+	"go-agent/internal/task"
 )
 
 // TaskTool is a unified tool for managing background tasks (subagent execution).

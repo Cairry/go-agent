@@ -11,8 +11,8 @@ Mini Agent is a Go-based AI agent framework that implements a complete agent exe
 ### Build
 ```bash
 go mod tidy
-go build -o mini-agent-go ./cmd
-# or on Windows: go build -o mini-agent-go.exe ./cmd
+go build -o go-agent ./cmd
+# or on Windows: go build -o go-agent.exe ./cmd
 ```
 
 **Note**: After making changes, only verify compilation passes (`go build`). Do NOT run `go test` unless explicitly requested.
@@ -20,10 +20,10 @@ go build -o mini-agent-go ./cmd
 ### Run
 ```bash
 # Run with default workspace
-./mini-agent-go
+./go-agent
 
 # Run with custom workspace
-./mini-agent-go /path/to/workspace
+./go-agent /path/to/workspace
 ```
 
 ### Test

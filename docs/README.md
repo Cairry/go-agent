@@ -4,7 +4,7 @@
 
 ## 这套教程是怎么来的？
 
-2026马年春节几天实在无聊，通过和Claude Code来回协作，从零构建一个完整的 Go 语言 AI Agent 框架mini-agent-go，完成整个设计、实现、调试、重构。最终的成果是一个真正可以投入使用的"数字员工"系统：它能调用工具、自主完成任务、记忆你的偏好、定时汇报工作，甚至通过即时通讯跟你聊天。
+2026马年春节几天实在无聊，通过和Claude Code来回协作，从零构建一个完整的 Go 语言 AI Agent 框架go-agent，完成整个设计、实现、调试、重构。最终的成果是一个真正可以投入使用的"数字员工"系统：它能调用工具、自主完成任务、记忆你的偏好、定时汇报工作，甚至通过即时通讯跟你聊天。
 
 这套教程，就是把那段构建历程变成一个循序渐进的学习路径。
 
@@ -29,8 +29,7 @@
 ✅ 能理解自然语言、完成复杂任务的 AI Agent
 ✅ 支持文件读写、命令执行、网页搜索等工具调用
 ✅ 自动管理上下文，不会因"记忆太多"而崩溃
-✅ 终端 TUI + 远程 Web 控制双界面
-✅ 微信/IM 机器人集成
+✅ 终端 TUI 界面
 ✅ 定时任务与异步子 Agent
 ✅ 持久记忆与技能插件系统
 ```
@@ -70,7 +69,7 @@ LLM API       工具系统       Agent循环
 | [第一章](ch01-llm-api.md) | 与 AI 握手——从一行 API 调用开始 | LLM 接口、统一抽象、流式输出 |
 | [第二章](ch02-tools.md) | 给 AI 装上手脚——工具感知与行动 | Function Calling、工具接口、文件/Bash 工具 |
 | [第三章](ch03-agent-loop.md) | 让 AI 自主奔跑——Agent 循环与智能摘要 | 主循环、Token 管理、自动压缩 |
-| [第四章](ch04-interface.md) | 全渠道驾驶舱——TUI/Web/通知/IM | 多界面、WebSocket、IM Gateway |
+| [第四章](ch04-interface.md) | TUI 界面与任务通知 | Bubbletea、流式输出、Server酱通知 |
 | [第五章](ch05-async.md) | 分身有术——子 Agent 与异步任务 | TaskManager、Cron、并发控制 |
 | [第六章](ch06-memory.md) | 记忆宫殿——持久内存与心跳监控 | 笔记工具、Token 摘要、监控 |
 | [第七章](ch07-skills.md) | 技能树开花——可插拔的技能系统 | Skills、渐进式披露、SKILL.md |
@@ -105,8 +104,8 @@ go version  # 确认安装成功
 ### 3. 克隆项目
 
 ```bash
-git clone https://github.com/your-repo/mini-agent-go
-cd mini-agent-go
+git clone https://github.com/your-repo/go-agent
+cd go-agent
 go mod tidy
 ```
 
@@ -129,8 +128,8 @@ agent:
 ### 5. 运行！
 
 ```bash
-go build -o mini-agent-go ./cmd
-./mini-agent-go
+go build -o go-agent ./cmd
+./go-agent
 ```
 
 ```
@@ -146,13 +145,12 @@ go build -o mini-agent-go ./cmd
 ## 项目结构速览
 
 ```
-mini-agent-go/
+go-agent/
 ├── cmd/                    # 程序入口
 ├── internal/
 │   ├── agent/              # Agent 主循环（第3章）
 │   ├── llm/                # LLM 客户端抽象（第1章）
 │   ├── tools/              # 工具系统（第2章）
-│   ├── gateway/            # IM Gateway（第4章）
 │   ├── task/               # 异步任务管理（第5章）
 │   ├── schema/             # 统一数据结构
 │   ├── config/             # 配置加载

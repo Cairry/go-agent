@@ -19,7 +19,8 @@ import (
 	"strings"
 	"sync"
 
-	"mini-agent-go/internal/shell/coreutils"
+	"go-agent/internal/shell/coreutils"
+
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"

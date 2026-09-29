@@ -287,12 +287,12 @@ AI 调用: ls(path=".")
 Step 2 ──────────────────────────────────────────
 AI 思考: 看看 internal 里有什么
 AI 调用: ls(path="internal")
-工具结果: agent/ llm/ tools/ gateway/ task/ schema/ config/
+工具结果: agent/ llm/ tools/ task/ schema/ config/
 
 Step 3 ──────────────────────────────────────────
 AI 思考: 我应该读一下 go.mod 了解依赖
 AI 调用: read(file_path="go.mod")
-工具结果: module mini-agent-go\ngo 1.21\nrequire (...)
+工具结果: module go-agent\ngo 1.21\nrequire (...)
 
 Step 4 ──────────────────────────────────────────
 AI 思考: 信息足够了，开始写报告
@@ -304,7 +304,7 @@ AI 回复: (无工具调用 → 循环结束)
 "分析完成！report.md 已生成。
 
 项目是一个 Go AI Agent 框架，包含：
-- 6 个核心包（agent, llm, tools, gateway, task, schema）
+- 5 个核心包（agent, llm, tools, task, schema）
 - 主要依赖：Anthropic SDK、mvdan/sh（Shell 解释器）
 - 架构清晰，模块间低耦合
 
@@ -322,7 +322,6 @@ AI 回复: (无工具调用 → 循环结束)
 ```
 .agent/logs/
 ├── mini-agent-20260222-143022.jsonl   # 每次运行一个文件
-└── gateway_20260222_140015.log        # Gateway 日志
 ```
 
 每行是一个 JSON 对象（JSON Lines 格式）：
@@ -357,6 +356,6 @@ AI 回复: (无工具调用 → 循环结束)
 
 ## 下一章预告
 
-Agent 跑起来了，但你不可能一直盯着终端。这章我们给它装上"驾驶舱"——终端 TUI、远程 Web 控制、手机通知、IM 机器人……
+Agent 跑起来了，但你不可能一直盯着终端。这章我们给它装上终端 TUI 和任务通知……
 
-**[第四章：全渠道驾驶舱——TUI/Web/通知/IM](ch04-interface.md)**
+**[第四章：TUI 界面与任务通知](ch04-interface.md)**

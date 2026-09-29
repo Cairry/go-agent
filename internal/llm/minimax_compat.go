@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // MiniMax M2/M2.5 returns tool calls as XML in content text instead of
@@ -99,38 +99,4 @@ func extractMiniMaxToolCalls(resp *schema.LLMResponse) {
 	// Remove tool call XML from content
 	content = reToolCallBlock.ReplaceAllString(content, "")
 	resp.Content = strings.TrimSpace(content)
-}
-
-// convertToolsToOpenAIFormat converts tool schemas to OpenAI format.
-// Handles both Anthropic flat format {"name","description","input_schema"}
-// and already-correct OpenAI format {"type":"function","function":{...}}.
-func convertToolsToOpenAIFormat(tools []map[string]interface{}) []map[string]interface{} {
-	result := make([]map[string]interface{}, 0, len(tools))
-	for _, t := range tools {
-		// Already in OpenAI format
-		if _, ok := t["function"]; ok {
-			result = append(result, t)
-			continue
-		}
-
-		// Convert from Anthropic flat format
-		name, _ := t["name"].(string)
-		desc, _ := t["description"].(string)
-		var params interface{}
-		if p, ok := t["input_schema"]; ok {
-			params = p
-		} else {
-			params = t["parameters"]
-		}
-
-		result = append(result, map[string]interface{}{
-			"type": "function",
-			"function": map[string]interface{}{
-				"name":        name,
-				"description": desc,
-				"parameters":  params,
-			},
-		})
-	}
-	return result
 }

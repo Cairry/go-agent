@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // Message represents a chat message with execution context
@@ -89,9 +89,3 @@ func (m *Message) IsAssistant() bool {
 func (m *Message) IsTool() bool {
 	return m.Role == "tool"
 }
-
-// HasToolCalls checks if message has tool calls
-func (m *Message) HasToolCalls() bool {
-	return len(m.ToolCalls) > 0
-}
-

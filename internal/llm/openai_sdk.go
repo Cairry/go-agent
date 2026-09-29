@@ -15,7 +15,7 @@ import (
 	"github.com/openai/openai-go/packages/ssestream"
 	"github.com/openai/openai-go/shared"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // OpenAISDKClient wraps the official OpenAI SDK
@@ -82,12 +82,7 @@ func (c *OpenAISDKClient) Close() error {
 }
 
 // GenerateStream generates a response from the LLM with streaming support
-func (c *OpenAISDKClient) GenerateStream(
-	ctx context.Context,
-	messages []*schema.Message,
-	tools []map[string]interface{},
-	callback StreamCallback,
-) (*schema.LLMResponse, error) {
+func (c *OpenAISDKClient) GenerateStream(ctx context.Context, messages []*schema.Message, tools []map[string]interface{}, callback StreamCallback) (*schema.LLMResponse, error) {
 	// Convert messages to OpenAI SDK format
 	msgParams := c.convertMessages(messages)
 	toolParams := c.convertTools(tools)
@@ -126,7 +121,26 @@ func (c *OpenAISDKClient) GenerateStream(
 	defer stream.Close()
 
 	// Process the stream
-	return c.processStream(stream, callback)
+	response, err := c.processStream(stream, callback)
+	if err != nil {
+		return nil, err
+	}
+
+	// Some OpenAI-compatible gateways accept the streaming request but return
+	// no SSE chunks. Retry as a normal chat completion so the final answer is
+	// still available to the Agent and TUI.
+	if response.Content == "" && len(response.ToolCalls) == 0 && response.Thinking == "" {
+		c.debugLogf("stream returned no content; retrying as non-streaming completion")
+		req.StreamOptions = openai.ChatCompletionStreamOptionsParam{}
+		fallback, fallbackErr := c.client.Chat.Completions.New(ctx, req)
+		if fallbackErr != nil {
+			return nil, fmt.Errorf("stream returned empty response and non-streaming fallback failed (api_base=%s): %w", c.config.APIBase, fallbackErr)
+		}
+
+		response = c.buildNonStreamingResponse(fallback, callback)
+	}
+
+	return response, nil
 }
 
 // convertMessages converts internal schema messages to OpenAI SDK format
@@ -232,18 +246,15 @@ type openaiStreamState struct {
 
 // openaiToolCallBuilder accumulates partial data for a single tool call
 type openaiToolCallBuilder struct {
-	id        string
-	name      string
-	argsJSON  strings.Builder
-	index     int64
-	started   bool
+	id       string
+	name     string
+	argsJSON strings.Builder
+	index    int64
+	started  bool
 }
 
 // processStream handles the SDK streaming response
-func (c *OpenAISDKClient) processStream(
-	stream *ssestream.Stream[openai.ChatCompletionChunk],
-	callback StreamCallback,
-) (*schema.LLMResponse, error) {
+func (c *OpenAISDKClient) processStream(stream *ssestream.Stream[openai.ChatCompletionChunk], callback StreamCallback) (*schema.LLMResponse, error) {
 	state := &openaiStreamState{
 		toolCallBuilders: make(map[int64]*openaiToolCallBuilder),
 	}
@@ -281,6 +292,55 @@ func (c *OpenAISDKClient) processStream(
 	return resp, nil
 }
 
+// buildNonStreamingResponse converts a standard Chat Completion response into
+// the internal response shape used by the Agent.
+func (c *OpenAISDKClient) buildNonStreamingResponse(completion *openai.ChatCompletion, callback StreamCallback) *schema.LLMResponse {
+	response := &schema.LLMResponse{}
+	if completion == nil || len(completion.Choices) == 0 {
+		return response
+	}
+
+	choice := completion.Choices[0]
+	response.Content = choice.Message.Content
+	response.FinishReason = choice.FinishReason
+	response.Usage = &schema.Usage{
+		InputTokens:      int(completion.Usage.PromptTokens),
+		OutputTokens:     int(completion.Usage.CompletionTokens),
+		TotalTokens:      int(completion.Usage.TotalTokens),
+		PromptTokens:     int(completion.Usage.PromptTokens),
+		CompletionTokens: int(completion.Usage.CompletionTokens),
+	}
+
+	for _, toolCall := range choice.Message.ToolCalls {
+		var args map[string]interface{}
+		if toolCall.Function.Arguments != "" {
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+				c.debugLogf("failed to parse fallback tool arguments for %s: %v", toolCall.Function.Name, err)
+				args = make(map[string]interface{})
+			}
+		}
+
+		response.ToolCalls = append(response.ToolCalls, schema.ToolCall{
+			ID:   toolCall.ID,
+			Type: "function",
+			Function: schema.FunctionCall{
+				Name:      toolCall.Function.Name,
+				Arguments: args,
+			},
+		})
+
+		if callback != nil {
+			callback.OnToolCallComplete(toolCall.ID, args)
+		}
+	}
+
+	if callback != nil && response.Content != "" {
+		callback.OnContentDelta(response.Content)
+	}
+
+	return response
+}
+
 // handleChunk processes a single streaming chunk
 func (c *OpenAISDKClient) handleChunk(
 	chunk openai.ChatCompletionChunk,
@@ -297,6 +357,23 @@ func (c *OpenAISDKClient) handleChunk(
 			state.textContent.WriteString(delta.Content)
 			if callback != nil {
 				callback.OnContentDelta(delta.Content)
+			}
+		} else {
+			// Some OpenAI-compatible gateways put streamed text in a
+			// non-standard field, or return message.content in a chunk.
+			// Recover it from the original JSON preserved by the SDK.
+			content, reasoning := extractChunkText(chunk.RawJSON())
+			if content == "" && reasoning == "" && chunk.RawJSON() != "" {
+				c.debugLogf("unparsed streaming chunk: %s", chunk.RawJSON())
+			}
+			if content != "" {
+				state.textContent.WriteString(content)
+				if callback != nil {
+					callback.OnContentDelta(content)
+				}
+			}
+			if reasoning != "" && callback != nil {
+				callback.OnThinkingDelta(reasoning)
 			}
 		}
 
@@ -359,6 +436,56 @@ func (c *OpenAISDKClient) handleChunk(
 	}
 
 	return nil
+}
+
+// extractChunkText handles common deviations found in OpenAI-compatible
+// streaming gateways while keeping the standard delta.content path above.
+func extractChunkText(raw string) (content, reasoning string) {
+	if raw == "" {
+		return "", ""
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return "", ""
+	}
+
+	choices, ok := payload["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		return "", ""
+	}
+	choice, ok := choices[0].(map[string]interface{})
+	if !ok {
+		return "", ""
+	}
+
+	readText := func(value interface{}) string {
+		text, _ := value.(string)
+		return text
+	}
+
+	if delta, ok := choice["delta"].(map[string]interface{}); ok {
+		content = readText(delta["content"])
+		if content == "" {
+			content = readText(delta["text"])
+		}
+		if content == "" {
+			content = readText(delta["output_text"])
+		}
+		reasoning = readText(delta["reasoning_content"])
+		if reasoning == "" {
+			reasoning = readText(delta["reasoning"])
+		}
+	}
+
+	if message, ok := choice["message"].(map[string]interface{}); ok && content == "" {
+		content = readText(message["content"])
+	}
+	if content == "" {
+		content = readText(choice["text"])
+	}
+
+	return content, reasoning
 }
 
 // finalizeToolCall processes a completed tool call from the accumulator

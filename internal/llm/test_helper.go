@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // Helper functions for testing

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"mini-agent-go/internal/schema"
+	"go-agent/internal/schema"
 )
 
 // StreamCallback receives streaming events during LLM generation

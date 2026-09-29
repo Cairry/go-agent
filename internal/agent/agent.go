@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"mini-agent-go/internal/llm"
-	"mini-agent-go/internal/schema"
-	"mini-agent-go/internal/storage"
-	"mini-agent-go/internal/tools"
-	"mini-agent-go/internal/utils"
+	"go-agent/internal/llm"
+	"go-agent/internal/schema"
+	"go-agent/internal/storage"
+	"go-agent/internal/tools"
+	"go-agent/internal/utils"
 )
 
 // ResolveAgentDir resolves the .agent/ directory path.
@@ -47,20 +47,20 @@ func ResolveExternalToolsDir() string {
 
 // Agent represents the main agent that orchestrates LLM calls and tool execution
 type Agent struct {
-	model        llm.Client
-	toolRegistry *tools.ToolRegistry
-	maxSteps     int
-	tokenLimit   int
-	workspace    string
-	todoStorage  *storage.TodoStorage
-	logger       *utils.Logger
-	systemPrompt string
-	messages     []*Message
-	lastInputTokens        int    // last LLM-reported input token count
-	lastSummarizedStep     int    // step number of last successful summarization (-1 = none)
-	lastCompactionSummary  string // previous compaction summary for incremental updates
-	keepRecentTokens       int    // tokens to preserve at tail (default 20000)
-	skillLoader            *tools.SkillLoader
+	model                 llm.Client
+	toolRegistry          *tools.ToolRegistry
+	maxSteps              int
+	tokenLimit            int
+	workspace             string
+	todoStorage           *storage.TodoStorage
+	logger                *utils.Logger
+	systemPrompt          string
+	messages              []*Message
+	lastInputTokens       int    // last LLM-reported input token count
+	lastSummarizedStep    int    // step number of last successful summarization (-1 = none)
+	lastCompactionSummary string // previous compaction summary for incremental updates
+	keepRecentTokens      int    // tokens to preserve at tail (default 20000)
+	skillLoader           *tools.SkillLoader
 
 	// Pending user messages buffer (for runtime message injection)
 	pendingMessages    []string
@@ -68,51 +68,6 @@ type Agent struct {
 
 	// Event channel for notifying TUI about updates
 	eventCh chan<- interface{}
-}
-
-// Option is a function that configures the Agent
-type Option func(*Agent)
-
-// WithMaxSteps sets the maximum number of steps
-func WithMaxSteps(maxSteps int) Option {
-	return func(a *Agent) {
-		a.maxSteps = maxSteps
-	}
-}
-
-// WithTokenLimit sets the token limit for summarization
-func WithTokenLimit(tokenLimit int) Option {
-	return func(a *Agent) {
-		a.tokenLimit = tokenLimit
-	}
-}
-
-// WithWorkspace sets the workspace directory
-func WithWorkspace(workspace string) Option {
-	return func(a *Agent) {
-		a.workspace = workspace
-	}
-}
-
-// WithSystemPrompt sets the system prompt
-func WithSystemPrompt(prompt string) Option {
-	return func(a *Agent) {
-		a.systemPrompt = prompt
-	}
-}
-
-// WithSkillLoader sets the skill loader
-func WithSkillLoader(loader *tools.SkillLoader) Option {
-	return func(a *Agent) {
-		a.skillLoader = loader
-	}
-}
-
-// WithEventCh sets the event channel for TUI updates
-func WithEventCh(eventCh chan<- interface{}) Option {
-	return func(a *Agent) {
-		a.eventCh = eventCh
-	}
 }
 
 // New creates a new Agent instance
@@ -766,9 +721,4 @@ func (a *Agent) GetPendingMessageCount() int {
 	a.pendingMessagesMux.Lock()
 	defer a.pendingMessagesMux.Unlock()
 	return len(a.pendingMessages)
-}
-
-// GetTodoStorage returns the todo storage instance
-func (a *Agent) GetTodoStorage() *storage.TodoStorage {
-	return a.todoStorage
 }

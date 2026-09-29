@@ -1,14 +1,12 @@
 # Mini Agent Go
 
-一个用 Go 语言实现的完整Mini AI Agent 框架，支持工具调用、自主任务执行、持久记忆、异步任务、IM 集成等能力。代码和教程全程由 Claude Code 协作实现。
+一个用 Go 语言实现的完整Mini AI Agent 框架，支持工具调用、自主任务执行、持久记忆和异步任务等能力。代码和教程全程由 Claude Code 协作实现。
 
 ## 功能特性
 
 - **Agent 主循环** — 工具调用驱动的自主执行，内置 Token 智能摘要防止上下文溢出
 - **丰富工具集** — 文件读写、Bash 执行、网页抓取、持久记忆笔记、待办管理
 - **终端 TUI** — 基于 Bubbletea 的交互界面，工具调用可折叠展示，流式输出
-- **远程 Web 控制** — WebSocket 实时推送，QR 码扫码连接，手机浏览器远程操作
-- **IM Gateway** — 对接 Server酱 IM，通过即时通讯渠道与 Agent 对话
 - **异步任务 + 定时任务** — 子 Agent 并发执行，Cron 定时触发，任务完成推送通知
 - **技能系统** — 从 `.agent/skills/` 加载 SKILL.md，渐进式披露，无需重新编译
 - **外部工具** — `.agent/tools/bin/` 预置任意语言实现的工具，YAML 定义接口
@@ -24,11 +22,11 @@
 ### 1. 构建
 
 ```bash
-git clone https://github.com/chuanyi/mini-agent-go.git
-cd mini-agent-go
+git clone https://github.com/chuanyi/go-agent.git
+cd go-agent
 go mod tidy
-go build -o mini-agent-go ./cmd
-# Windows: go build -o mini-agent-go.exe ./cmd
+go build -o go-agent ./cmd
+# Windows: go build -o go-agent.exe ./cmd
 ```
 
 ### 2. 配置
@@ -56,10 +54,10 @@ agent:
 
 ```bash
 # 使用默认工作目录 (./workspace)
-./mini-agent-go
+./go-agent
 
 # 指定工作目录
-./mini-agent-go /path/to/workspace
+./go-agent /path/to/workspace
 ```
 
 启动后进入 TUI 界面，直接输入自然语言指令即可。
@@ -95,22 +93,6 @@ agent:
 task:
   max_workers: 3                 # 子 Agent 最大并发数
 
-notify:
-  enabled: false
-  sendkey: "SCT..."              # Server酱 SendKey，任务完成后推送通知
-
-web_control:
-  enabled: false
-  host: "0.0.0.0"
-  port: 18765
-  show_qrcode: true              # 启动时显示二维码
-
-# IM Gateway 渠道（可配置多个）
-channels:
-  - type: serverim
-    account_id: "my-bot"
-    send_key: "SCT..."           # Server酱 SendKey（发送消息用）
-    receive_url: "https://..."   # 消息拉取 URL
 ```
 
 ## 工具列表
@@ -205,15 +187,13 @@ parameters:
 ## 项目结构
 
 ```
-mini-agent-go/
+go-agent/
 ├── cmd/
 │   └── main.go                  # 程序入口
 ├── internal/
 │   ├── agent/                   # Agent 核心（主循环、摘要、回调）
 │   ├── llm/                     # LLM 客户端（Anthropic SDK、OpenAI SDK）
 │   ├── tools/                   # 工具系统（接口、注册表、各工具实现）
-│   ├── gateway/                 # IM Gateway（消息路由、渠道接口）
-│   │   └── channels/serverim/   # Server酱 IM 渠道实现
 │   ├── task/                    # 异步任务与 Cron 调度
 │   ├── tui/                     # Bubbletea TUI 界面
 │   ├── schema/                  # 统一数据结构定义
@@ -246,10 +226,6 @@ mini-agent-go/
 
 异步任务由独立的 Agent 实例执行，有独立的对话历史和工具集。子 Agent 不注册 `task`/`cron` 工具，防止递归创建任务。
 
-### IM Gateway
-
-每个 IM 渠道对应一个独立的 Agent Worker，消息路由通过 channel 类型 + 账号 ID 定位。实现 `IMChannel` 接口即可接入新的 IM 平台。
-
 ## 开发
 
 ```bash
@@ -276,13 +252,11 @@ go test ./internal/agent -v
 | `aymanbagabas/go-udiff` | Unified diff（edit 工具） |
 | `easychen/serverchan-sdk-golang` | Server酱通知推送 |
 | `robfig/cron/v3` | Cron 表达式解析 |
-| `skip2/go-qrcode` | 终端二维码生成 |
-| `nhooyr.io/websocket` | WebSocket（Web 控制） |
 | `JohannesKaufmann/html-to-markdown` | 网页转 Markdown |
 
 ## 教程
 
-详见 [`docs/`](docs/README.md)——《用 Claude Code 打造你的智能体数字员工》系列教程，从零讲解如何一步步构建Mini-Agent-Go框架的每个模块。
+详见 [`docs/`](docs/README.md)——《用 Claude Code 打造你的智能体数字员工》系列教程，从零讲解如何一步步构建go-agent框架的每个模块。
 
 <img src="docs/3.png">  
 
