@@ -87,8 +87,15 @@ func (t *WebDownloadTool) download(ctx context.Context, targetURL, filePath stri
 		return "", 0, "", fmt.Errorf("URL must start with http:// or https://")
 	}
 
-	// Resolve path and validate within workspace
-	absPath, err := ResolvePath(t.workspace, filePath)
+	// Absolute paths are supported by this tool as documented; relative paths
+	// remain sandboxed to the configured workspace.
+	var absPath string
+	var err error
+	if filepath.IsAbs(filePath) {
+		absPath, err = filepath.Abs(filepath.Clean(filePath))
+	} else {
+		absPath, err = ResolvePath(t.workspace, filePath)
+	}
 	if err != nil {
 		return "", 0, "", err
 	}

@@ -65,9 +65,6 @@ type Agent struct {
 	// Pending user messages buffer (for runtime message injection)
 	pendingMessages    []string
 	pendingMessagesMux sync.Mutex
-
-	// Event channel for notifying TUI about updates
-	eventCh chan<- interface{}
 }
 
 // New creates a new Agent instance
@@ -186,8 +183,8 @@ func (a *Agent) RegisterDefaultTools() {
 	a.RegisterTool(tools.NewWebFetchTool())
 	a.RegisterTool(tools.NewWebDownloadTool(a.workspace))
 
-	// Register todo tool
-	a.RegisterTool(tools.NewTodoTool(a.todoStorage, a.eventCh))
+	// Register todo tool. HTTP clients receive tool events through AgentCallback.
+	a.RegisterTool(tools.NewTodoTool(a.todoStorage, nil))
 }
 
 // AddUserMessage adds a user message to the conversation
@@ -200,7 +197,7 @@ func (a *Agent) Run(ctx context.Context, prompt string) (string, error) {
 	return a.runLoop(ctx, prompt, nil)
 }
 
-// RunWithCallback executes the agent loop with streaming and tool callbacks for TUI mode.
+// RunWithCallback executes the agent loop with streaming and tool callbacks.
 func (a *Agent) RunWithCallback(ctx context.Context, prompt string, callback AgentCallback) error {
 	_, err := a.runLoop(ctx, prompt, &callback)
 	return err
@@ -217,7 +214,7 @@ func (a *Agent) runLoop(ctx context.Context, prompt string, callback *AgentCallb
 	}
 
 	for step := 0; step < a.maxSteps; step++ {
-		// Inject pending messages (TUI mode only)
+		// Inject pending messages when streaming callbacks are enabled
 		if callback != nil {
 			a.injectPendingMessages(*callback)
 		}
@@ -708,8 +705,8 @@ func getOSInfo() OSInfo {
 	}
 }
 
-// AppendUserMessage appends a user message to the pending buffer (thread-safe)
-// This is called by TUI when Agent is running to queue messages for injection
+// AppendUserMessage appends a user message to the pending buffer (thread-safe).
+// It can be used while an Agent run is in progress.
 func (a *Agent) AppendUserMessage(content string) {
 	a.pendingMessagesMux.Lock()
 	defer a.pendingMessagesMux.Unlock()

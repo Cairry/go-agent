@@ -64,7 +64,7 @@ func (r *Runtime) Tools() []tools.Tool {
 	return r.tools
 }
 
-// StartupMessages returns messages that should be shown after the TUI starts.
+// StartupMessages returns initialization diagnostics collected during startup.
 func (r *Runtime) StartupMessages() []string {
 	return r.startup
 }

@@ -160,7 +160,7 @@ func (l *SkillLoader) DiscoverSkills() ([]*Skill, error) {
 
 	// Check if skills directory exists
 	if _, err := os.Stat(l.skillsDir); os.IsNotExist(err) {
-		// Skills directory does not exist - TUI mode should not print
+		// Skills directory does not exist; there is nothing to load.
 		return skills, nil
 	}
 
@@ -174,7 +174,7 @@ func (l *SkillLoader) DiscoverSkills() ([]*Skill, error) {
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skill, loadErr := l.LoadSkill(path)
 			if loadErr != nil {
-				// Failed to load skill - TUI mode should not print
+				// Failed to load skill; continue loading other skills.
 				return nil // Continue walking
 			}
 
@@ -236,7 +236,7 @@ type GetSkillTool struct {
 func NewGetSkillTool(loader *SkillLoader) *GetSkillTool {
 	return &GetSkillTool{
 		BaseTool: &BaseTool{
-			NameValue:       "get_skill",
+			NameValue:        "get_skill",
 			DescriptionValue: "Get complete content and guidance for a specified skill, used for executing specific types of tasks",
 			ParametersValue: map[string]interface{}{
 				"type": "object",
@@ -289,7 +289,7 @@ func CreateSkillTools(skillsDir string) (Tool, *SkillLoader, error) {
 		return nil, nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
 
-	// Discovered skills - TUI mode should not print to console
+	// Discovered skills are loaded silently; diagnostics are returned to the caller.
 
 	// Create get_skill tool (Progressive Disclosure Level 2)
 	tool := NewGetSkillTool(loader)

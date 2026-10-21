@@ -128,7 +128,7 @@ func (c *OpenAISDKClient) GenerateStream(ctx context.Context, messages []*schema
 
 	// Some OpenAI-compatible gateways accept the streaming request but return
 	// no SSE chunks. Retry as a normal chat completion so the final answer is
-	// still available to the Agent and TUI.
+	// still available to the Agent when streaming is unavailable.
 	if response.Content == "" && len(response.ToolCalls) == 0 && response.Thinking == "" {
 		c.debugLogf("stream returned no content; retrying as non-streaming completion")
 		req.StreamOptions = openai.ChatCompletionStreamOptionsParam{}

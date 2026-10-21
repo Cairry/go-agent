@@ -12,7 +12,7 @@ import (
 type TodoTool struct {
 	BaseTool
 	storage *storage.TodoStorage
-	eventCh chan<- interface{} // Channel to notify TUI about updates
+	eventCh chan<- interface{} // Optional channel for progress updates
 }
 
 // NewTodoTool creates a new TodoTool instance
@@ -90,7 +90,7 @@ func (t *TodoTool) Execute(ctx context.Context, params map[string]interface{}) (
 	// Get statistics
 	stats := t.storage.GetStats()
 
-	// Notify TUI about the update (non-blocking)
+	// Notify listeners about the update (non-blocking)
 	if t.eventCh != nil {
 		select {
 		case t.eventCh <- TodoUpdateEvent{
@@ -109,7 +109,7 @@ func (t *TodoTool) Execute(ctx context.Context, params map[string]interface{}) (
 	return ContentResult(content), nil
 }
 
-// TodoUpdateEvent represents a todo update event sent to the TUI
+// TodoUpdateEvent represents a todo progress update.
 type TodoUpdateEvent struct {
 	PreviousTodos []storage.TodoItem
 	NewTodos      []storage.TodoItem

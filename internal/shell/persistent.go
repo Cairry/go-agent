@@ -22,7 +22,7 @@ func GetPersistentShell(cwd string) *PersistentShell {
 		shellInstance = &PersistentShell{
 			Shell: NewShell(&Options{
 				WorkingDir: cwd,
-				Logger:     noopLogger{}, // Use noop logger to prevent output interference with TUI
+				Logger:     noopLogger{}, // Keep shell command logs out of the API process output
 			}),
 			workspace: cwd,
 		}
@@ -39,12 +39,11 @@ func (p *PersistentShell) ResetToWorkspace() {
 	}
 }
 
-// loggingAdapter adapts the internal slog package to the Logger interface
-// DEPRECATED: This causes output to terminal which interferes with TUI
-// Use noopLogger instead for TUI mode
+// loggingAdapter adapts the internal slog package to the Logger interface.
+// It is retained for compatibility but intentionally does not write to stdout.
 type loggingAdapter struct{}
 
 func (l *loggingAdapter) InfoPersist(msg string, keysAndValues ...any) {
-	// Disabled to prevent TUI interference
+	// Disabled to keep command logs out of the API process output.
 	// slog.Info(msg, keysAndValues...)
 }

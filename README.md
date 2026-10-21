@@ -6,7 +6,7 @@
 
 - **Agent 主循环** — 工具调用驱动的自主执行，内置 Token 智能摘要防止上下文溢出
 - **丰富工具集** — 文件读写、Bash 执行、网页抓取、持久记忆笔记、待办管理
-- **终端 TUI** — 基于 Bubbletea 的交互界面，工具调用可折叠展示，流式输出
+- **HTTP API + SSE 流式响应** — 通过 HTTP 请求 Agent，实时返回思考、文本增量和工具调用事件
 - **异步任务 + 定时任务** — 子 Agent 并发执行，Cron 定时触发，任务完成推送通知
 - **技能系统** — 从 `.agent/skills/` 加载 SKILL.md，渐进式披露，无需重新编译
 - **外部工具** — `.agent/tools/bin/` 预置任意语言实现的工具，YAML 定义接口
@@ -48,19 +48,42 @@ agent:
   token_limit: 80000
   workspace_dir: "./workspace"
   system_prompt_path: "system_prompt.md"  # 可选，自定义系统提示
+
+server:
+  listen_addr: "127.0.0.1:8080"           # HTTP API 监听地址
 ```
 
-### 3. 运行
+### 3. 运行 HTTP API 服务
 
 ```bash
-# 使用默认工作目录 (./workspace)
+# 使用配置文件中的 workspace 和 server.listen_addr
 ./go-agent
 
 # 指定工作目录
 ./go-agent /path/to/workspace
+
+# 覆盖监听地址
+./go-agent -listen 127.0.0.1:8080
 ```
 
-启动后进入 TUI 界面，直接输入自然语言指令即可。
+默认监听 `127.0.0.1:8080`。发送消息时使用 SSE（Server-Sent Events）流式响应：
+
+```bash
+curl -N -X POST http://127.0.0.1:8080/api/chat \\
+  -H 'Content-Type: application/json' \\
+  -d '{"message":"列出当前目录的文件","session_id":"default"}'
+```
+
+主要接口：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/healthz` | 健康检查 |
+| `POST` | `/api/chat` | Agent 对话，SSE 流式返回 `content`、`thinking`、`tool_call`、`tool_result`、`done` 等事件 |
+| `POST` | `/api/clear` | 清空会话历史，body 可传 `session_id` |
+| `GET` | `/api/stats?session_id=default` | 获取会话统计 |
+
+`/api/chat` 请求体中的 `session_id` 用于隔离多轮会话；不传时使用 `default` 会话。
 
 ## 配置详解
 
@@ -93,6 +116,9 @@ agent:
 task:
   max_workers: 3                 # 子 Agent 最大并发数
 
+server:
+  listen_addr: "127.0.0.1:8080" # HTTP API 监听地址
+
 ```
 
 ## 工具列表
@@ -116,16 +142,18 @@ task:
 | `cron` | 创建/管理定时任务 |
 | `get_skill` | 按需加载技能内容 |
 
-## TUI 快捷键
+## API 流式事件
 
-| 按键 | 功能 |
-|------|------|
-| `Enter` | 发送消息 |
-| `Shift+Enter` | 消息内换行 |
-| `Ctrl+C` / `Ctrl+Q` | 退出 |
-| `/clear` | 清空对话历史 |
-| `/stats` | 显示会话统计 |
-| `/help` | 显示帮助 |
+`POST /api/chat` 返回 `text/event-stream`。每条 SSE 消息包含事件名和 JSON 数据，常用事件包括：
+
+- `step`：Agent 当前执行步数
+- `thinking`：模型思考内容增量
+- `content`：模型回复文本增量
+- `tool_call` / `tool_result`：工具调用及结果
+- `done`：本次请求完成
+- `error`：执行失败
+
+同一个 `session_id` 会保留多轮对话历史，不同会话互相隔离；同一会话的请求会按顺序执行。
 
 ## 技能系统
 
@@ -195,12 +223,11 @@ go-agent/
 │   ├── llm/                     # LLM 客户端（Anthropic SDK、OpenAI SDK）
 │   ├── tools/                   # 工具系统（接口、注册表、各工具实现）
 │   ├── task/                    # 异步任务与 Cron 调度
-│   ├── tui/                     # Bubbletea TUI 界面
+│   ├── api/                     # HTTP API 与 SSE 流式服务
+│   ├── shell/                   # 持久化 Shell 会话管理
 │   ├── schema/                  # 统一数据结构定义
 │   ├── config/                  # 配置加载
 │   ├── storage/                 # Todo 存储
-│   ├── shell/                   # 持久化 Shell 会话管理
-│   ├── reflow/                  # CJK 支持的文本折行（本地 patch）
 │   └── utils/                   # 日志、Token 估算等工具函数
 ├── docs/
 │   └── tutorial/                # 教程系列（9 章）
@@ -247,8 +274,6 @@ go test ./internal/agent -v
 | `anthropics/anthropic-sdk-go` | Anthropic 官方 Go SDK |
 | `openai/openai-go` | OpenAI 官方 Go SDK |
 | `mvdan.cc/sh/v3` | 纯 Go POSIX Shell（跨平台 bash 工具） |
-| `charmbracelet/bubbletea` | TUI 框架（Elm 架构） |
-| `charmbracelet/glamour` | Markdown 终端渲染 |
 | `aymanbagabas/go-udiff` | Unified diff（edit 工具） |
 | `easychen/serverchan-sdk-golang` | Server酱通知推送 |
 | `robfig/cron/v3` | Cron 表达式解析 |

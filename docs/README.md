@@ -29,7 +29,7 @@
 ✅ 能理解自然语言、完成复杂任务的 AI Agent
 ✅ 支持文件读写、命令执行、网页搜索等工具调用
 ✅ 自动管理上下文，不会因"记忆太多"而崩溃
-✅ 终端 TUI 界面
+✅ HTTP API 与 SSE 流式响应
 ✅ 定时任务与异步子 Agent
 ✅ 持久记忆与技能插件系统
 ```
@@ -69,7 +69,7 @@ LLM API       工具系统       Agent循环
 | [第一章](ch01-llm-api.md) | 与 AI 握手——从一行 API 调用开始 | LLM 接口、统一抽象、流式输出 |
 | [第二章](ch02-tools.md) | 给 AI 装上手脚——工具感知与行动 | Function Calling、工具接口、文件/Bash 工具 |
 | [第三章](ch03-agent-loop.md) | 让 AI 自主奔跑——Agent 循环与智能摘要 | 主循环、Token 管理、自动压缩 |
-| [第四章](ch04-interface.md) | TUI 界面与任务通知 | Bubbletea、流式输出、Server酱通知 |
+| [第四章](ch04-interface.md) | HTTP API 与流式响应 | HTTP、SSE、任务通知 |
 | [第五章](ch05-async.md) | 分身有术——子 Agent 与异步任务 | TaskManager、Cron、并发控制 |
 | [第六章](ch06-memory.md) | 记忆宫殿——持久内存与心跳监控 | 笔记工具、Token 摘要、监控 |
 | [第七章](ch07-skills.md) | 技能树开花——可插拔的技能系统 | Skills、渐进式披露、SKILL.md |
@@ -125,19 +125,19 @@ agent:
   workspace_dir: .            # Agent 工作目录
 ```
 
-### 5. 运行！
+### 5. 运行 HTTP API
 
 ```bash
 go build -o go-agent ./cmd
 ./go-agent
 ```
 
-```
-╭─────────────────────────────────────────╮
-│          Mini Agent                     │
-│   你的数字员工已就位，等待指令            │
-╰─────────────────────────────────────────╯
-> 你好，帮我列出当前目录的文件
+服务默认监听 `127.0.0.1:8080`，使用 SSE 请求 Agent：
+
+```bash
+curl -N -X POST http://127.0.0.1:8080/api/chat \\
+  -H 'Content-Type: application/json' \\
+  -d '{"message":"列出当前目录的文件","session_id":"default"}'
 ```
 
 ---
@@ -154,7 +154,7 @@ go-agent/
 │   ├── task/               # 异步任务管理（第5章）
 │   ├── schema/             # 统一数据结构
 │   ├── config/             # 配置加载
-│   └── tui/                # 终端界面（第4章）
+│   └── api/                 # HTTP API 与 SSE 流式服务
 ├── skills/                 # 技能插件目录（第7章）
 └── .agent/                 # 运行时数据目录
     ├── config/             # 配置文件

@@ -150,8 +150,8 @@ func (s *Shell) execPOSIX(ctx context.Context, command string) (string, string, 
 		return "", "", fmt.Errorf("could not parse command: %w", err)
 	}
 
-	// Temporarily redirect os.Stdout and os.Stderr to prevent
-	// external commands from interfering with TUI display
+	// Temporarily redirect os.Stdout and os.Stderr so external commands cannot
+	// corrupt the API process output.
 	// This is critical for commands like go build, npm, etc.
 	originalStdout := os.Stdout
 	originalStderr := os.Stderr

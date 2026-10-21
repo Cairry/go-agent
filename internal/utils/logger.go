@@ -71,7 +71,7 @@ func (l *Logger) SetLogDir(dir string) {
 func (l *Logger) StartNewRun() {
 	// Create logs directory
 	if err := os.MkdirAll(l.logDir, 0755); err != nil {
-		// Failed to create log directory - TUI mode should not print
+		// Failed to create log directory; logging is best-effort.
 		return
 	}
 
@@ -82,7 +82,7 @@ func (l *Logger) StartNewRun() {
 	var err error
 	l.logFile, err = os.Create(l.logFilePath)
 	if err != nil {
-		// Failed to create log file - TUI mode should not print
+		// Failed to create log file; logging is best-effort.
 	}
 }
 

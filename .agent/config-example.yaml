@@ -24,3 +24,6 @@ tools:
   skills_dir: "./skills"
   enable_mcp: true
   mcp_config_path: "mcp.json"
+
+server:
+  listen_addr: "127.0.0.1:8080"

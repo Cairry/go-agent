@@ -50,12 +50,18 @@ type TaskConfig struct {
 	TaskTimeout int `yaml:"task_timeout"` // per-task timeout in seconds (default: 600)
 }
 
+// ServerConfig represents HTTP API server configuration.
+type ServerConfig struct {
+	ListenAddr string `yaml:"listen_addr"` // default: 127.0.0.1:8080
+}
+
 // Config represents the main configuration
 type Config struct {
-	LLM   LLMConfig   `yaml:"llm"`
-	Agent AgentConfig `yaml:"agent"`
-	Tools ToolsConfig `yaml:"tools"`
-	Task  TaskConfig  `yaml:"task"`
+	LLM    LLMConfig    `yaml:"llm"`
+	Agent  AgentConfig  `yaml:"agent"`
+	Tools  ToolsConfig  `yaml:"tools"`
+	Task   TaskConfig   `yaml:"task"`
+	Server ServerConfig `yaml:"server"`
 }
 
 // Load loads configuration from file
@@ -161,6 +167,10 @@ func validateAndSetDefaults(config *Config) error {
 	}
 	if config.Task.TaskTimeout == 0 {
 		config.Task.TaskTimeout = 600
+	}
+	// Set server defaults
+	if config.Server.ListenAddr == "" {
+		config.Server.ListenAddr = "127.0.0.1:8080"
 	}
 
 	return nil
