@@ -8,7 +8,8 @@ import (
 
 // AgentCallback defines callback functions for Agent execution events.
 type AgentCallback struct {
-	OnStep func(step, maxSteps int)
+	OnStep   func(step, maxSteps int)
+	OnIntent func(status, skillName, intent, explanation string) // status: started, matched, understood, failed
 
 	// Streaming callbacks
 	OnContentDelta   func(delta string, isFirst bool)

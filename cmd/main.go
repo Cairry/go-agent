@@ -57,7 +57,8 @@ func main() {
 		listenAddr = listenArg
 	}
 
-	logDir := filepath.Join(agent.ResolveAgentDir(), "logs")
+	// Keep LLM logs at the project root.
+	logDir := "logs"
 	model, err := llm.NewClient(llm.Config{
 		APIKey:      cfg.LLM.APIKey,
 		APIBase:     cfg.LLM.APIBase,

@@ -55,6 +55,8 @@ type Agent struct {
 	todoStorage           *storage.TodoStorage
 	logger                *utils.Logger
 	systemPrompt          string
+	baseSystemPrompt      string
+	activeSkill           *tools.Skill
 	messages              []*Message
 	lastInputTokens       int    // last LLM-reported input token count
 	lastSummarizedStep    int    // step number of last successful summarization (-1 = none)
@@ -87,8 +89,8 @@ func New(model llm.Client, options ...Option) *Agent {
 		opt(a)
 	}
 
-	// Set log directory to .agent/logs/
-	a.logger.SetLogDir(filepath.Join(ResolveAgentDir(), "logs"))
+	// Keep agent logs at the project root.
+	a.logger.SetLogDir("logs")
 
 	// Inject skills metadata into system prompt if skill loader is provided
 	if a.skillLoader != nil {
@@ -119,9 +121,12 @@ func New(model llm.Client, options ...Option) *Agent {
 		a.systemPrompt = a.systemPrompt + contextInfo
 	}
 
+	// Keep the skill-free prompt as the base. A matching skill is injected per request.
+	a.baseSystemPrompt = a.systemPrompt
+
 	// Initialize with system message
-	if a.systemPrompt != "" {
-		a.messages = append(a.messages, NewSystemMessage(a.systemPrompt))
+	if systemPrompt := a.currentSystemPrompt(); systemPrompt != "" {
+		a.messages = append(a.messages, NewSystemMessage(systemPrompt))
 	}
 
 	return a
@@ -206,6 +211,22 @@ func (a *Agent) RunWithCallback(ctx context.Context, prompt string, callback Age
 // runLoop is the unified execution loop shared by Run and RunWithCallback.
 // When callback is nil, no streaming adapter or event callbacks are fired.
 func (a *Agent) runLoop(ctx context.Context, prompt string, callback *AgentCallback) (string, error) {
+	decision, err := a.selectSkill(ctx, prompt)
+	if err != nil {
+		if callback != nil && callback.OnIntent != nil {
+			callback.OnIntent("failed", "", "", err.Error())
+		}
+		return "", fmt.Errorf("skill intent recognition failed: %w", err)
+	}
+	a.setActiveSkill(decision.Skill)
+	if callback != nil && callback.OnIntent != nil {
+		if decision.Skill == nil {
+			callback.OnIntent("understood", "", decision.Intent, decision.Explanation)
+		} else {
+			callback.OnIntent("matched", decision.Skill.Name, decision.Intent, decision.Explanation)
+		}
+	}
+
 	a.AddUserMessage(prompt)
 	a.logger.StartNewRun()
 
@@ -587,8 +608,8 @@ func (a *Agent) GetHistory() []*Message {
 // preserving the system prompt as the first message.
 func (a *Agent) ClearHistory() {
 	a.messages = nil
-	if a.systemPrompt != "" {
-		a.messages = append(a.messages, NewSystemMessage(a.systemPrompt))
+	if systemPrompt := a.currentSystemPrompt(); systemPrompt != "" {
+		a.messages = append(a.messages, NewSystemMessage(systemPrompt))
 	}
 	a.lastInputTokens = 0
 	a.lastCompactionSummary = ""

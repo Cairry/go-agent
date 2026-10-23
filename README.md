@@ -119,6 +119,10 @@ task:
 server:
   listen_addr: "127.0.0.1:8080" # HTTP API 监听地址
 
+tools:
+  skills_dir: ".agent/skills"       # Skill 目录
+  mcp_config_path: "mcp.json"
+
 ```
 
 ## 工具列表
@@ -142,10 +146,13 @@ server:
 | `cron` | 创建/管理定时任务 |
 | `get_skill` | 按需加载技能内容 |
 
-## API 流式事件
+### API 流式事件
 
-`POST /api/chat` 返回 `text/event-stream`。每条 SSE 消息包含事件名和 JSON 数据，常用事件包括：
+`POST /api/chat` 返回 `text/event-stream`。Agent 会先发送 `intent_checking`，完成意图识别和 Skill 路由后，才进入普通执行步骤。
 
+常用事件：
+
+- `intent_checking`：意图识别和 Skill 路由状态
 - `step`：Agent 当前执行步数
 - `thinking`：模型思考内容增量
 - `content`：模型回复文本增量
@@ -153,11 +160,76 @@ server:
 - `done`：本次请求完成
 - `error`：执行失败
 
+`intent_checking` 事件字段：
+
+| 字段 | 说明 |
+|------|------|
+| `status` | `started`、`matched`、`understood` 或 `failed` |
+| `skill` | 匹配到的 Skill 名称，没有匹配时为空 |
+| `intent` | Agent 对用户意图的简要理解 |
+| `content` | 面向用户的意图说明 |
+
 同一个 `session_id` 会保留多轮对话历史，不同会话互相隔离；同一会话的请求会按顺序执行。
+
+## 意图识别与技能路由
+
+Agent 不会在收到请求后立即调用工具。只要项目加载了 Skill，Agent 会先执行一个**不提供任何工具的意图识别阶段**：
+
+```text
+用户请求
+   │
+   ▼
+intent_checking: started
+   │
+   ├── 识别用户想做什么
+   ├── 对比可用 Skill 的名称和描述
+   └── 生成面向用户的理解说明
+   │
+   ├── matched    → 加载匹配的完整 SKILL.md
+   ├── understood → 按普通流程处理
+   └── failed     → 路由结果无效，停止本次请求
+   │
+   ▼
+step → LLM → tool_call/tool_result → content
+```
+
+路由阶段不会提供 `write`、`bash` 等工具，因此 Skill 规则加载前不会发生文件写入或其他工具副作用。
+
+### 匹配到 Skill 时
+
+例如用户请求：
+
+```text
+创建一个 99乘法表.txt 文件
+```
+
+Agent 可能返回：
+
+```text
+event: intent_checking
+data: {"type":"intent_checking","status":"matched","skill":"create-file","intent":"创建一个九九乘法表文件","content":"我理解你的请求是创建一个九九乘法表文件，将使用 create-file Skill。"}
+```
+
+随后 Agent 加载 `.agent/skills/create-file/SKILL.md`，按照该 Skill 的流程继续处理。对于要求二次确认的 Skill，首次请求只能询问确认，不能直接调用 `write`。
+
+### 没有匹配 Skill 时
+
+Agent 不会向用户提示“没有找到 Skill”，而是直接说明对请求的理解并继续执行：
+
+```text
+event: intent_checking
+data: {"type":"intent_checking","status":"understood","skill":"","intent":"生成九九乘法表","content":"我理解你的请求是：生成九九乘法表，现在开始处理。"}
+```
+
+此时不会应用其他 Skill 的专属约束。
+
+### 路由失败时
+
+如果路由模型返回了无效 JSON，或者选择了不存在的 Skill，Agent 会发送 `status: failed` 并停止本次请求，不执行工具操作。这样可以避免在无法确认执行规则时产生副作用。
 
 ## 技能系统
 
-在 `.agent/skills/` 目录创建 SKILL.md 文件，无需重新编译即可扩展 Agent 能力：
+在 `.agent/skills/` 目录创建 `SKILL.md` 文件，无需重新编译即可扩展 Agent 能力。启动时会扫描 Skill 元数据；每次请求先通过 `intent_checking` 进行意图识别，匹配后自动加载完整 Skill：
 
 ```
 .agent/skills/
@@ -183,7 +255,7 @@ allowed-tools:
 详细的操作流程、最佳实践、检查项……
 ```
 
-启动时自动扫描加载，元数据注入 system prompt；Agent 通过 `get_skill` 工具按需加载完整内容。
+Skill 完整内容会在匹配后自动加载；`get_skill` 仍可用于显式读取某个 Skill 的完整说明。
 
 ## 外部工具
 
@@ -231,6 +303,7 @@ go-agent/
 │   └── utils/                   # 日志、Token 估算等工具函数
 ├── docs/
 │   └── tutorial/                # 教程系列（9 章）
+├── logs/                        # Agent 和 LLM 执行日志
 └── .agent/                      # 运行时数据目录（放在可执行文件同级）
     ├── config.yaml              # 配置文件
     ├── config-example.yaml      # 配置示例
@@ -238,7 +311,6 @@ go-agent/
     ├── memory.json              # 持久记忆
     ├── skills/                  # 技能插件
     ├── tasks/                   # 任务持久化数据
-    ├── logs/                    # 执行日志（JSONL 格式）
     └── tools/
         └── bin/                 # 外部工具二进制
 ```

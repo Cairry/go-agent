@@ -255,7 +255,7 @@ token 数：再次重置
 const healthCheckPrompt = `
 系统自检：
 1. 检查磁盘空间是否充足（df -h）
-2. 检查 .agent/logs/ 目录大小，超过 100MB 则归档旧日志
+2. 检查 logs/ 目录大小，超过 100MB 则归档旧日志
 3. 检查 .agent/tasks/tasks.json 中是否有长时间卡在 running 状态的任务
 4. 报告系统状态
 `
@@ -267,7 +267,7 @@ cronManager.AddJob("0 * * * *", healthCheckPrompt)
 ### 日志管理
 
 ```
-.agent/logs/
+logs/
 ├── mini-agent-20260222-143022.jsonl  # 今天的会话日志
 ├── mini-agent-20260221-091533.jsonl  # 昨天的
 ├── mini-agent-20260220-163041.jsonl  # 前天的
@@ -280,7 +280,7 @@ cronManager.AddJob("0 * * * *", healthCheckPrompt)
 
 AI: [调用 cron 工具]
     schedule: "0 2 * * 0"（每周日凌晨 2 点）
-    description: "清理 .agent/logs/ 中 30 天前的日志文件，使用 bash 工具"
+    description: "清理 logs/ 中 30 天前的日志文件，使用 bash 工具"
     好的，已设置日志清理定时任务。
 ```
 

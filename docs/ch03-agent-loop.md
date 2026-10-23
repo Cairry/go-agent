@@ -141,7 +141,7 @@ func (a *Agent) executeTool(ctx context.Context, toolCall ToolCall) (*ToolResult
         result = ErrorResult(fmt.Sprintf("Tool execution failed: %v", err))
     }
 
-    // 记录日志（JSONL 格式写入 .agent/logs/）
+    // 记录日志（JSONL 格式写入项目根目录 logs/）
     a.logger.LogToolResult(toolCall.Function.Name, toolCall.Function.Arguments, result)
 
     // 工具结果作为新消息加入对话
@@ -317,11 +317,11 @@ AI 回复: (无工具调用 → 循环结束)
 
 ## 日志系统
 
-所有 LLM 请求和工具执行都被记录到 `.agent/logs/` 目录：
+所有 LLM 请求和工具执行都被记录到项目根目录的 `logs/` 目录：
 
 ```
-.agent/logs/
-├── mini-agent-20260222-143022.jsonl   # 每次运行一个文件
+logs/
+├── agent_20260222_143022.log   # 每次运行一个文件
 ```
 
 每行是一个 JSON 对象（JSON Lines 格式）：

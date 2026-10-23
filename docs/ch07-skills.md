@@ -165,6 +165,26 @@ func (t *GetSkillTool) Execute(ctx, params) (*ToolResult, error) {
 
 ---
 
+## 意图识别与技能路由
+
+Agent 收到用户请求后，会先执行一次不提供任何工具的意图识别请求。路由阶段只允许返回 JSON：
+
+```json
+{"skill":"create-file"}
+```
+
+如果没有匹配的技能，则返回空技能名：
+
+```json
+{"skill":""}
+```
+
+只有识别到匹配技能并加载完整 `SKILL.md` 后，Agent 才会进入正常工具调用阶段。这样可以避免 Agent 在加载技能规则前直接调用 `write`、`bash` 等工具。
+
+当没有匹配技能时，Agent 按普通流程处理，不应用其他技能的约束。路由响应格式错误或选择了不存在的技能时，本次请求会停止，不执行工具操作。
+
+---
+
 ## SKILL.md 解析流程
 
 ```go

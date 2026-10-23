@@ -156,9 +156,9 @@ go-agent/
 │   ├── config/             # 配置加载
 │   └── api/                 # HTTP API 与 SSE 流式服务
 ├── skills/                 # 技能插件目录（第7章）
+├── logs/                  # Agent 和 LLM 执行日志
 └── .agent/                 # 运行时数据目录
     ├── config/             # 配置文件
-    ├── logs/               # 执行日志
     ├── memory.json         # 持久记忆
     └── tools/bin/          # 外部工具二进制（第8章）
 ```

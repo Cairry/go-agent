@@ -173,6 +173,15 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = current.agent.RunWithCallback(r.Context(), request.Message, agent.AgentCallback{
+		OnIntent: func(status, skillName, intent, explanation string) {
+			send("intent_checking", map[string]interface{}{
+				"type":    "intent_checking",
+				"status":  status,
+				"skill":   skillName,
+				"intent":  intent,
+				"content": explanation,
+			})
+		},
 		OnStep: func(step, maxSteps int) {
 			send("step", map[string]interface{}{"type": "step", "step": step, "max_steps": maxSteps})
 		},
